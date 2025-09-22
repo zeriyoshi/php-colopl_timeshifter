@@ -4,7 +4,7 @@ if (PHP_COLOPL_TIMESHIFTER != "no") {
 	var timelib_sources = "third_party/timelib/dow.c third_party/timelib/timelib.c third_party/timelib/tm2unixtime.c third_party/timelib/unixtime2tm.c third_party/timelib/parse_posix.c third_party/timelib/parse_tz.c third_party/timelib/interval.c";
 	var timeshifter_sources = "hook.c shared_memory.c";
 
-	EXTENSION("colopl_timeshifter", "colopl_timeshifter.c " + timeshifter_sources + " " + timelib_sources);
+	EXTENSION('colopl_timeshifter', "colopl_timeshifter.c " + timeshifter_sources + " " + timelib_sources);
 
 	ADD_FLAG("CFLAGS_COLOPL_TIMESHIFTER", "/I " + configure_module_dirname + "\\third_party\\timelib /DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 /DHAVE_TIMELIB_CONFIG_H=1");
 
