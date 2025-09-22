@@ -1,0 +1,38 @@
+ARG_ENABLE("colopl-timeshifter", "enable colopl_timeshifter support", "no");
+
+if (PHP_COLOPL_TIMESHIFTER != "no") {
+	var timelib_sources = "third_party/timelib/dow.c third_party/timelib/timelib.c third_party/timelib/tm2unixtime.c third_party/timelib/unixtime2tm.c third_party/timelib/parse_posix.c third_party/timelib/parse_tz.c third_party/timelib/interval.c";
+	var timeshifter_sources = "hook.c shared_memory.c";
+
+	EXTENSION("colopl_timeshifter", "colopl_timeshifter.c " + timeshifter_sources + " " + timelib_sources);
+
+	ADD_FLAG("CFLAGS_COLOPL_TIMESHIFTER", "/I " + configure_module_dirname + "\\third_party\\timelib /DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 /DHAVE_TIMELIB_CONFIG_H=1");
+
+	var timelib_config_content =
+		"#ifdef PHP_WIN32\n" +
+		"# include \"config.w32.h\"\n" +
+		"#else\n" +
+		"# include <php_config.h>\n" +
+		"#endif\n" +
+		"#include <inttypes.h>\n" +
+		"#include <stdint.h>\n" +
+		"\n" +
+		"#include \"zend.h\"\n" +
+		"\n" +
+		"#define timelib_malloc  emalloc\n" +
+		"#define timelib_realloc erealloc\n" +
+		"#define timelib_calloc  ecalloc\n" +
+		"#define timelib_strdup  estrdup\n" +
+		"#define timelib_strndup estrndup\n" +
+		"#define timelib_free    efree\n";
+
+	if (!FSO.FolderExists(configure_module_dirname + "\\third_party\\timelib")) {
+		FSO.CreateFolder(configure_module_dirname + "\\third_party\\timelib");
+	}
+
+	var f = FSO.CreateTextFile(configure_module_dirname + "\\third_party\\timelib\\timelib_config.h", true);
+	f.Write(timelib_config_content);
+	f.Close();
+
+	AC_DEFINE("HAVE_TIMELIB_CONFIG_H", 1, "Have timelib_config.h");
+}
