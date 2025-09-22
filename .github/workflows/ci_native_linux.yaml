@@ -45,7 +45,7 @@ jobs:
       - name: Test extension with Bundled PHP + PHP library test
         run: |
           docker compose run --rm -v "$(pwd)/php-cache:/opt/php-cache" -e PHP_CACHE_DIR="/opt/php-cache" -e GITHUB_ACTIONS="true" -e CONTAINER_IMAGE_HASH="${{ steps.pull-image.outputs.image_hash }}" shell pskel test
-          docker compose run --rm shell library_test
+          docker compose run --rm -v "$(pwd)/php-cache:/opt/php-cache" -e PHP_CACHE_DIR="/opt/php-cache" -e GITHUB_ACTIONS="true" -e CONTAINER_IMAGE_HASH="${{ steps.pull-image.outputs.image_hash }}" shell library_test
       - name: Test extension with PHP Debug Build
         if: matrix.version != '8.1'
         run: docker compose run --rm -v "$(pwd)/php-cache:/opt/php-cache" -e PHP_CACHE_DIR="/opt/php-cache" -e GITHUB_ACTIONS="true" -e CONTAINER_IMAGE_HASH="${{ steps.pull-image.outputs.image_hash }}" shell pskel test debug
