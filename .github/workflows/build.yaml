@@ -14,7 +14,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
         with:
-          submodules: true
+          submodules: recursive
       - name: Setup QEMU
         uses: docker/setup-qemu-action@v3
         with:

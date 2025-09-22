@@ -14,7 +14,8 @@ jobs:
         - name: Checkout
           uses: actions/checkout@v5
           with:
-            submodules: true
+            submodules: recursive
+            fetch-depth: 1
         - name: Setup QEMU
           uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
           with:
@@ -72,7 +73,8 @@ jobs:
           run: |
             docker pull "${{ steps.image-tag.outputs.tag }}"
         - name: Test extension with Bundled PHP + PHP library test
+          env:
+            SHELL_IMAGE: ${{ steps.image-tag.outputs.tag }}
           run: |
-            export SHELL_IMAGE="${{ steps.image-tag.outputs.tag }}"
             docker compose run --rm shell pskel test
             docker compose run --rm shell library_test

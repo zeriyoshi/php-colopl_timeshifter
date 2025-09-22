@@ -5,6 +5,10 @@ colopl_timeshifter
 pdo
 pdo_mysql
 mysqlnd
+--SKIPIF--
+<?php
+if (\PHP_OS_FAMILY !== 'Linux') die('skip test only on Linux');
+?>
 --INI--
 colopl_timeshifter.is_hook_pdo_mysql=1
 --FILE--

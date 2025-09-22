@@ -10,7 +10,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
         with:
-          submodules: true
+          submodules: recursive
+          fetch-depth: 1
       - name: Check if initialization is needed
         id: check
         run: |
@@ -45,7 +46,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
         with:
-          submodules: true
+          submodules: recursive
+          fetch-depth: 1
       - name: Download initialized extension
         if: needs.init.outputs.needs-init == 'true'
         uses: actions/download-artifact@v5
@@ -76,10 +78,13 @@ jobs:
           cd "ext"
           phpize
           ./configure.bat --enable-${{ steps.ext-name.outputs.name }} --with-prefix=${{ steps.setup-php.outputs.prefix }}
-      - name: Build and Test
+      - name: Build
+        run: |
+          cd "ext"
+          nmake
+      - name: Test
         env:
           TEST_PHP_ARGS: '-q --show-diff'
         run: |
           cd "ext"
-          nmake
           nmake test
