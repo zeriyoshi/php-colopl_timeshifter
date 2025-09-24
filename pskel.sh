@@ -155,11 +155,7 @@ build_php_if_not_exists() {
     CPPFLAGS="${CFLAGS}" \
     LDFLAGS="${LDFLAGS}" \
     CONFIGURE_OPTS="${CONFIGURE_OPTS} --enable-debug $(php -r "echo PHP_ZTS === 1 ? '--enable-zts' : '';") --enable-option-checking=fatal --disable-phpdbg --disable-cgi --disable-fpm --enable-cli --without-pcre-jit --disable-opcache-jit --disable-zend-max-execution-timers" \
-    cmd_build "${PREFIX}"
-
-    if test -d "${PHP_CACHE_DIR}"; then
-      cache_php_build "${PREFIX}" "${1}" "${CC}"
-    fi
+      cmd_build "${PREFIX}"
   fi
 }
 
@@ -259,6 +255,10 @@ EOF
     make install
     make clean
   cd -
+
+  if test -d "${PHP_CACHE_DIR}"; then
+    cache_php_build "${1}" "${1}" "${CC}"
+  fi
 }
 
 cmd_coverage() {
