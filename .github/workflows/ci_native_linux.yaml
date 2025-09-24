@@ -35,11 +35,14 @@ jobs:
           restore-keys: |
             php-bins-${{ matrix.version }}-${{ matrix.type }}-${{ matrix.distro }}-
       - name: Check cache and Build container
+        id: check-cache
         run: |
           if test -d "php-cache"; then
             echo "Found cached PHP binaries"
+            echo "cache-hit=true" >> "${GITHUB_OUTPUT}"
           else
             mkdir -p "php-cache"
+            echo "cache-hit=false" >> "${GITHUB_OUTPUT}"
           fi
           docker compose build --no-cache --build-arg IMAGE="php" --build-arg TAG="${{ matrix.version }}-${{ matrix.type }}-${{ matrix.distro }}"
       - name: Test extension with Bundled PHP + PHP library test (PHP <= 8.1)
@@ -48,7 +51,7 @@ jobs:
           docker compose run --rm shell pskel test
           docker compose run --rm shell library_test
       - name: Build pdo_mysql enabled PHP binary
-        if: matrix.version != '8.1'
+        if: matrix.version > '8.1' && steps.check-cache.outputs.cache-hit != 'true'
         run: |
           docker compose run --rm -v "$(pwd)/php-cache:/opt/php-cache" -e PHP_CACHE_DIR="/opt/php-cache" -e CONTAINER_IMAGE_HASH="${{ steps.pull-image.outputs.image_hash }}" -e CONFIGURE_OPTS="--with-pdo-mysql" shell pskel build normal
       - name: Test extension with Bundled PHP + PHP library test (PHP > 8.1)
