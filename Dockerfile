@@ -63,14 +63,14 @@ CMD ["bash"]
 
 # ----
 
-RUN if test "$(php -r "PHP_VERSION_ID < 80200 ? 'true' : 'false';")" = "true"; then \
+RUN if test "$(php -r "echo PHP_VERSION_ID < 80200 ? 'true' : 'false';")" = "true" || test "$(uname -m)" = "s390x"; then \
       docker-php-ext-install "pdo_mysql"; \
     fi
 
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+COPY --from=composer:2 "/usr/bin/composer" "/usr/bin/composer"
 
 COPY ./ /project
-COPY ./library_test.sh /usr/local/bin/library_test
+COPY ./library_test.sh "/usr/local/bin/library_test"
 
 ENV COMPOSER_ROOT_VERSION="9.9.9"
 

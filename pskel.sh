@@ -83,13 +83,22 @@ EOF
       CXX="$(command -v "clang++")"
       case "${1}" in
         msan)
-          CFLAGS="${CFLAGS} -fsanitize=memory" LDFLAGS="${LDFLAGS} -fsanitize=memory" CONFIGURE_OPTS="${CONFIGURE_OPTS} --enable-debug --enable-memory-sanitizer" build_php_if_not_exists "msan"
+          CFLAGS="${CFLAGS} -fsanitize=memory"
+          LDFLAGS="${LDFLAGS} -fsanitize=memory"
+          CONFIGURE_OPTS="${CONFIGURE_OPTS} --enable-debug --enable-memory-sanitizer"
+          build_php_if_not_exists "msan"
           ;;
         asan)
-          CFLAGS="${CFLAGS} -fsanitize=address" LDFLAGS="${LDFLAGS} -fsanitize=address" CONFIGURE_OPTS="${CONFIGURE_OPTS} --enable-debug --enable-address-sanitizer" build_php_if_not_exists "asan"
+          CFLAGS="${CFLAGS} -fsanitize=address"
+          LDFLAGS="${LDFLAGS} -fsanitize=address"
+          CONFIGURE_OPTS="${CONFIGURE_OPTS} --enable-debug --enable-address-sanitizer"
+          build_php_if_not_exists "asan"
           ;;
         ubsan)
-          CFLAGS="${CFLAGS} -fsanitize=undefined" LDFLAGS="${LDFLAGS} -fsanitize=undefined" CONFIGURE_OPTS="${CONFIGURE_OPTS} --enable-debug --enable-undefined-sanitizer" build_php_if_not_exists "ubsan"
+          CFLAGS="${CFLAGS} -fsanitize=undefined"
+          LDFLAGS="${LDFLAGS} -fsanitize=undefined"
+          CONFIGURE_OPTS="${CONFIGURE_OPTS} --enable-debug --enable-undefined-sanitizer"
+          build_php_if_not_exists "ubsan"
           ;;
       esac
       CMD="$(basename "${CC}")-${1}-php"
@@ -142,7 +151,7 @@ build_php_if_not_exists() {
   if ! command -v "${PREFIX}-php" >/dev/null 2>&1; then
     CC="${CC}" \
     CXX="${CXX}" \
-    CFLAGS="-DZEND_TRACK_ARENA_ALLOC" \
+    CFLAGS="${CFLAGS} -DZEND_TRACK_ARENA_ALLOC" \
     CPPFLAGS="${CFLAGS}" \
     LDFLAGS="${LDFLAGS}" \
     CONFIGURE_OPTS="${CONFIGURE_OPTS} $(php -r "echo PHP_ZTS === 1 ? '--enable-zts' : '';") --enable-option-checking=fatal --disable-phpdbg --disable-cgi --disable-fpm --enable-cli --without-pcre-jit --disable-opcache-jit --disable-zend-max-execution-timers" \
