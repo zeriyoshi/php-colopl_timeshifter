@@ -25,23 +25,23 @@ jobs:
       - name: Generate cache key
         id: cache-key
         run: |
-          ARCH="$(uname -m)"
-          echo "key=php-bins-${{ matrix.version }}-${{ matrix.type }}-${{ matrix.distro }}-${ARCH}-${{ steps.pull-image.outputs.image_hash }}" >> "${GITHUB_OUTPUT}"
+          echo "arch=$(uname -m)" >> "${GITHUB_OUTPUT}"
+          echo "key=php-cache-$(uname -m)-${{ matrix.version }}-${{ matrix.type }}-${{ matrix.distro }}-${{ steps.pull-image.outputs.image_hash }}" >> "${GITHUB_OUTPUT}"
       - name: Cache PHP binaries
         uses: actions/cache@v4
         with:
-          path: php-cache
+          path: .php-cache
           key: ${{ steps.cache-key.outputs.key }}
           restore-keys: |
-            php-bins-${{ matrix.version }}-${{ matrix.type }}-${{ matrix.distro }}-
+            php-cache-${{ steps.cache-key.outputs.arch }}-${{ matrix.version }}-${{ matrix.type }}-${{ matrix.distro }}
       - name: Check cache and Build container
         id: check-cache
         run: |
-          if test -d "php-cache"; then
+          if test -d ".php-cache"; then
             echo "Found cached PHP binaries"
             echo "cache-hit=true" >> "${GITHUB_OUTPUT}"
           else
-            mkdir -p "php-cache"
+            mkdir -p ".php-cache"
             echo "cache-hit=false" >> "${GITHUB_OUTPUT}"
           fi
           docker compose build --no-cache --build-arg IMAGE="php" --build-arg TAG="${{ matrix.version }}-${{ matrix.type }}-${{ matrix.distro }}"
@@ -53,24 +53,24 @@ jobs:
       - name: Build pdo_mysql enabled PHP binary
         if: matrix.version > '8.1' && steps.check-cache.outputs.cache-hit != 'true'
         run: |
-          docker compose run --rm -v "$(pwd)/php-cache:/opt/php-cache" -e PHP_CACHE_DIR="/opt/php-cache" -e CONTAINER_IMAGE_HASH="${{ steps.pull-image.outputs.image_hash }}" -e CONFIGURE_OPTS="--with-pdo-mysql" shell pskel build normal
+          docker compose run --rm -v "$(pwd)/.php-cache:/opt/php-cache" -e PHP_CACHE_DIR="/opt/php-cache" -e CONTAINER_IMAGE_HASH="${{ steps.pull-image.outputs.image_hash }}" -e CONFIGURE_OPTS="--with-pdo-mysql" shell pskel build normal
       - name: Test extension with Bundled PHP + PHP library test (PHP > 8.1)
         if: matrix.version > '8.1'
         run: |
-          docker compose run --rm -v "$(pwd)/php-cache:/opt/php-cache" -e PHP_CACHE_DIR="/opt/php-cache" -e CONTAINER_IMAGE_HASH="${{ steps.pull-image.outputs.image_hash }}" -e CONFIGURE_OPTS="--with-pdo-mysql" shell pskel test normal
-          docker compose run --rm -v "$(pwd)/php-cache:/opt/php-cache" -e PHP_CACHE_DIR="/opt/php-cache" -e CONTAINER_IMAGE_HASH="${{ steps.pull-image.outputs.image_hash }}" -e CONFIGURE_OPTS="--with-pdo-mysql" shell library_test
+          docker compose run --rm -v "$(pwd)/.php-cache:/opt/php-cache" -e PHP_CACHE_DIR="/opt/php-cache" -e CONTAINER_IMAGE_HASH="${{ steps.pull-image.outputs.image_hash }}" -e CONFIGURE_OPTS="--with-pdo-mysql" shell pskel test normal
+          docker compose run --rm -v "$(pwd)/.php-cache:/opt/php-cache" -e PHP_CACHE_DIR="/opt/php-cache" -e CONTAINER_IMAGE_HASH="${{ steps.pull-image.outputs.image_hash }}" -e CONFIGURE_OPTS="--with-pdo-mysql" shell library_test
       - name: Test extension with PHP Debug Build
         if: matrix.version != '8.1'
-        run: docker compose run --rm -v "$(pwd)/php-cache:/opt/php-cache" -e PHP_CACHE_DIR="/opt/php-cache" -e CONTAINER_IMAGE_HASH="${{ steps.pull-image.outputs.image_hash }}" -e CONFIGURE_OPTS="--with-pdo-mysql" shell pskel test debug
+        run: docker compose run --rm -v "$(pwd)/.php-cache:/opt/php-cache" -e PHP_CACHE_DIR="/opt/php-cache" -e CONTAINER_IMAGE_HASH="${{ steps.pull-image.outputs.image_hash }}" -e CONFIGURE_OPTS="--with-pdo-mysql" shell pskel test debug
       - name: Test extension with Valgrind
         if: matrix.version != '8.1'
-        run: docker compose run --rm -v "$(pwd)/php-cache:/opt/php-cache" -e PHP_CACHE_DIR="/opt/php-cache" -e CONTAINER_IMAGE_HASH="${{ steps.pull-image.outputs.image_hash }}" -e CONFIGURE_OPTS="--with-pdo-mysql" shell pskel test valgrind
+        run: docker compose run --rm -v "$(pwd)/.php-cache:/opt/php-cache" -e PHP_CACHE_DIR="/opt/php-cache" -e CONTAINER_IMAGE_HASH="${{ steps.pull-image.outputs.image_hash }}" -e CONFIGURE_OPTS="--with-pdo-mysql" shell pskel test valgrind
       - name: Test extension with LLVM Sanitizer (MemorySanitizer)
         if: matrix.distro != 'alpine' && matrix.version != '8.1'
-        run: docker compose run --rm -v "$(pwd)/php-cache:/opt/php-cache" -e PHP_CACHE_DIR="/opt/php-cache" -e CONTAINER_IMAGE_HASH="${{ steps.pull-image.outputs.image_hash }}" -e CONFIGURE_OPTS="--with-pdo-mysql" shell pskel test msan
+        run: docker compose run --rm -v "$(pwd)/.php-cache:/opt/php-cache" -e PHP_CACHE_DIR="/opt/php-cache" -e CONTAINER_IMAGE_HASH="${{ steps.pull-image.outputs.image_hash }}" -e CONFIGURE_OPTS="--with-pdo-mysql" shell pskel test msan
       - name: Test extension with LLVM Sanitizer (AddressSanitizer)
         if: matrix.distro != 'alpine' && matrix.version != '8.1'
-        run: docker compose run --rm -v "$(pwd)/php-cache:/opt/php-cache" -e PHP_CACHE_DIR="/opt/php-cache" -e CONTAINER_IMAGE_HASH="${{ steps.pull-image.outputs.image_hash }}" -e CONFIGURE_OPTS="--with-pdo-mysql" shell pskel test asan
+        run: docker compose run --rm -v "$(pwd)/.php-cache:/opt/php-cache" -e PHP_CACHE_DIR="/opt/php-cache" -e CONTAINER_IMAGE_HASH="${{ steps.pull-image.outputs.image_hash }}" -e CONFIGURE_OPTS="--with-pdo-mysql" shell pskel test asan
       - name: Test extension with LLVM Sanitizer (UndefinedBehaviorSanitizer)
         if: matrix.distro != 'alpine' && matrix.version != '8.1'
-        run: docker compose run --rm -v "$(pwd)/php-cache:/opt/php-cache" -e PHP_CACHE_DIR="/opt/php-cache" -e CONTAINER_IMAGE_HASH="${{ steps.pull-image.outputs.image_hash }}" -e CONFIGURE_OPTS="--with-pdo-mysql" shell pskel test ubsan
+        run: docker compose run --rm -v "$(pwd)/.php-cache:/opt/php-cache" -e PHP_CACHE_DIR="/opt/php-cache" -e CONTAINER_IMAGE_HASH="${{ steps.pull-image.outputs.image_hash }}" -e CONFIGURE_OPTS="--with-pdo-mysql" shell pskel test ubsan

@@ -64,7 +64,8 @@ CMD ["bash"]
 # ----
 
 RUN if test "$(php -r "echo PHP_VERSION_ID < 80200 ? 'true' : 'false';")" = "true" || test "$(uname -m)" = "s390x"; then \
-      docker-php-ext-install "pdo_mysql"; \
+      docker-php-ext-install "pdo_mysql" \
+      docker-php-ext-enable "pdo_mysql"; \
     fi
 
 COPY --from=composer:2 "/usr/bin/composer" "/usr/bin/composer"

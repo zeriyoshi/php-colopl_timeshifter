@@ -2,7 +2,7 @@
 /ext/*~
 /vendor
 /.idea
-/php-cache
+/.php-cache
 *.DS_Store
 lcov.info
 composer.lock
