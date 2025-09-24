@@ -69,12 +69,12 @@ EOF
       case "${1}" in
         debug) build_php_if_not_exists "debug";;
         gcov)
-          CONFIGURE_OPTS="--enable-gcov"
+          CONFIGURE_OPTS="${CONFIGURE_OPTS} --enable-gcov"
           build_php_if_not_exists "gcov"
           CFLAGS="${CFLAGS} --coverage"
           ;;
         valgrind)
-          CONFIGURE_OPTS="--with-valgrind"
+          CONFIGURE_OPTS="${CONFIGURE_OPTS} --with-valgrind"
           build_php_if_not_exists "valgrind"
           TEST_PHP_ARGS="${TEST_PHP_ARGS} -m"
           ;;
@@ -86,19 +86,19 @@ EOF
       CXX="$(command -v "clang++")"
       case "${1}" in
         msan)
-          CONFIGURE_OPTS="--enable-memory-sanitizer"
+          CONFIGURE_OPTS="${CONFIGURE_OPTS} --enable-memory-sanitizer"
           build_php_if_not_exists "msan"
           CFLAGS="${CFLAGS} -fsanitize=memory"
           LDFLAGS="${LDFLAGS} -fsanitize=memory"
           ;;
         asan)
-          CONFIGURE_OPTS="--enable-address-sanitizer"
+          CONFIGURE_OPTS="${CONFIGURE_OPTS} --enable-address-sanitizer"
           build_php_if_not_exists "asan"
           CFLAGS="${CFLAGS} -fsanitize=address"
           LDFLAGS="${LDFLAGS} -fsanitize=address"
           ;;
         ubsan)
-          CONFIGURE_OPTS="--enable-undefined-sanitizer"
+          CONFIGURE_OPTS="${CONFIGURE_OPTS} --enable-undefined-sanitizer"
           build_php_if_not_exists "ubsan"
           CFLAGS="${CFLAGS} -fsanitize=undefined"
           LDFLAGS="${LDFLAGS} -fsanitize=undefined"
@@ -139,7 +139,7 @@ EOF
 build_php_if_not_exists() {
   PREFIX="$(basename "${CC}")-${1}"
 
-  if test -n "${GITHUB_ACTIONS}" && test -d "${PHP_CACHE_DIR}"; then
+  if test -d "${PHP_CACHE_DIR}"; then
     if check_and_restore_cached_php "${PREFIX}" "${1}" "${CC}" "${CONFIGURE_OPTS}"; then
       return 0
     fi
@@ -154,7 +154,7 @@ build_php_if_not_exists() {
     CONFIGURE_OPTS="${CONFIGURE_OPTS} --enable-debug $(php -r "echo PHP_ZTS === 1 ? '--enable-zts' : '';") --enable-option-checking=fatal --disable-phpdbg --disable-cgi --disable-fpm --enable-cli --without-pcre-jit --disable-opcache-jit --disable-zend-max-execution-timers" \
     cmd_build "${PREFIX}"
 
-    if test -n "${GITHUB_ACTIONS}" && test -d "${PHP_CACHE_DIR}"; then
+    if test -d "${PHP_CACHE_DIR}"; then
       cache_php_build "${PREFIX}" "${1}" "${CC}"
     fi
   fi
