@@ -38,10 +38,8 @@ jobs:
         run: |
           if test -d "php-cache"; then
             echo "Found cached PHP binaries"
-            echo "true" >> "${GITHUB_OUTPUT}"
           else
             mkdir -p "php-cache"
-            echo "false" >> "${GITHUB_OUTPUT}"
           fi
           docker compose build --no-cache --build-arg IMAGE="php" --build-arg TAG="${{ matrix.version }}-${{ matrix.type }}-${{ matrix.distro }}"
       - name: Test extension with Bundled PHP + PHP library test
