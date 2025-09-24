@@ -63,6 +63,10 @@ CMD ["bash"]
 
 # ----
 
+RUN if test "$(php -r "PHP_VERSION_ID < 80200 ? 'true' : 'false';")" = "true"; then \
+      docker-php-ext-install "pdo_mysql"; \
+    fi
+
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 COPY ./ /project

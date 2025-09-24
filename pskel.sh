@@ -67,15 +67,12 @@ EOF
       CC="$(command -v "gcc")"
       CXX="$(command -v "g++")"
       case "${1}" in
-        debug) build_php_if_not_exists "debug";;
+        debug) CONFIGURE_OPTS="${CONFIGURE_OPTS} --enable-debug" build_php_if_not_exists "debug";;
         gcov)
-          CONFIGURE_OPTS="${CONFIGURE_OPTS} --enable-gcov"
-          build_php_if_not_exists "gcov"
-          CFLAGS="${CFLAGS} --coverage"
+          CFLAGS="${CFLAGS} --coverage" CONFIGURE_OPTS="${CONFIGURE_OPTS} --enable-debug --enable-gcov" build_php_if_not_exists "gcov"
           ;;
         valgrind)
-          CONFIGURE_OPTS="${CONFIGURE_OPTS} --with-valgrind"
-          build_php_if_not_exists "valgrind"
+          CONFIGURE_OPTS="${CONFIGURE_OPTS} --enable-debug --with-valgrind" build_php_if_not_exists "valgrind"
           TEST_PHP_ARGS="${TEST_PHP_ARGS} -m"
           ;;
       esac
@@ -86,22 +83,13 @@ EOF
       CXX="$(command -v "clang++")"
       case "${1}" in
         msan)
-          CONFIGURE_OPTS="${CONFIGURE_OPTS} --enable-memory-sanitizer"
-          build_php_if_not_exists "msan"
-          CFLAGS="${CFLAGS} -fsanitize=memory"
-          LDFLAGS="${LDFLAGS} -fsanitize=memory"
+          CFLAGS="${CFLAGS} -fsanitize=memory" LDFLAGS="${LDFLAGS} -fsanitize=memory" CONFIGURE_OPTS="${CONFIGURE_OPTS} --enable-debug --enable-memory-sanitizer" build_php_if_not_exists "msan"
           ;;
         asan)
-          CONFIGURE_OPTS="${CONFIGURE_OPTS} --enable-address-sanitizer"
-          build_php_if_not_exists "asan"
-          CFLAGS="${CFLAGS} -fsanitize=address"
-          LDFLAGS="${LDFLAGS} -fsanitize=address"
+          CFLAGS="${CFLAGS} -fsanitize=address" LDFLAGS="${LDFLAGS} -fsanitize=address" CONFIGURE_OPTS="${CONFIGURE_OPTS} --enable-debug --enable-address-sanitizer" build_php_if_not_exists "asan"
           ;;
         ubsan)
-          CONFIGURE_OPTS="${CONFIGURE_OPTS} --enable-undefined-sanitizer"
-          build_php_if_not_exists "ubsan"
-          CFLAGS="${CFLAGS} -fsanitize=undefined"
-          LDFLAGS="${LDFLAGS} -fsanitize=undefined"
+          CFLAGS="${CFLAGS} -fsanitize=undefined" LDFLAGS="${LDFLAGS} -fsanitize=undefined" CONFIGURE_OPTS="${CONFIGURE_OPTS} --enable-debug --enable-undefined-sanitizer" build_php_if_not_exists "ubsan"
           ;;
       esac
       CMD="$(basename "${CC}")-${1}-php"
@@ -110,17 +98,17 @@ EOF
       CMD="php"
       ;;
     *)
-      CMD="${1}"
-      if ! command -v "${CMD}" >/dev/null 2>&1; then
-        CMD="${1}-php"
-      fi
+      build_php_if_not_exists "${1}"
+      CMD="${1}-php"
       ;;
   esac
 
   for BIN in "${CMD}" "${CMD}ize" "${CMD}-config"; do
     if ! command -v "${BIN}" >/dev/null 2>&1; then
-      echo "Error: Invalid argument '${CMD}', executable file not found" >&2
-      exit 1
+      if ! check_and_restore_cached_php "${1}" "${1}" "${CC}" "${CONFIGURE_OPTS}"; then
+        echo "Error: Invalid argument '${CMD}', executable file not found" >&2
+        exit 1
+      fi
     fi
   done
 
@@ -140,7 +128,10 @@ EOF
 }
 
 build_php_if_not_exists() {
-  PREFIX="$(basename "${CC}")-${1}"
+  PREFIX="${1}"
+  if test -n "${CC}"; then
+    PREFIX="$(basename "${CC}")-${PREFIX}"
+  fi
 
   if test -d "${PHP_CACHE_DIR}"; then
     if check_and_restore_cached_php "${PREFIX}" "${1}" "${CC}" "${CONFIGURE_OPTS}"; then
@@ -154,15 +145,15 @@ build_php_if_not_exists() {
     CFLAGS="-DZEND_TRACK_ARENA_ALLOC" \
     CPPFLAGS="${CFLAGS}" \
     LDFLAGS="${LDFLAGS}" \
-    CONFIGURE_OPTS="${CONFIGURE_OPTS} --enable-debug $(php -r "echo PHP_ZTS === 1 ? '--enable-zts' : '';") --enable-option-checking=fatal --disable-phpdbg --disable-cgi --disable-fpm --enable-cli --without-pcre-jit --disable-opcache-jit --disable-zend-max-execution-timers" \
-      cmd_build "${PREFIX}"
+    CONFIGURE_OPTS="${CONFIGURE_OPTS} $(php -r "echo PHP_ZTS === 1 ? '--enable-zts' : '';") --enable-option-checking=fatal --disable-phpdbg --disable-cgi --disable-fpm --enable-cli --without-pcre-jit --disable-opcache-jit --disable-zend-max-execution-timers" \
+      cmd_build "${PREFIX}" "${1}"
   fi
 }
 
 check_and_restore_cached_php() {
   PREFIX="${1}"
   BUILD_TYPE="${2}"
-  COMPILER="${3}"
+  COMPILER="$(basename "${3}")"
   CONFIGURE_OPTS_LOCAL="${4}"
 
   CACHE_KEY="$(generate_cache_key "${BUILD_TYPE}" "${COMPILER}")"
@@ -170,13 +161,13 @@ check_and_restore_cached_php() {
 
   if test -f "${CACHE_DIR}/.build_complete"; then
     for BIN in php phpize php-config; do
-      if test -f "${CACHE_DIR}/usr/local/bin/${PREFIX}-${BIN}"; then
-        ln -sf "${CACHE_DIR}/usr/local/bin/${PREFIX}-${BIN}" "/usr/local/bin/${PREFIX}-${BIN}"
+      if test -f "${CACHE_DIR}/bin/${PREFIX}-${BIN}"; then
+        ln -sf "${CACHE_DIR}/bin/${PREFIX}-${BIN}" "/usr/local/bin/${PREFIX}-${BIN}"
       fi
     done
 
-    if test -d "${CACHE_DIR}/usr/local/include/${PREFIX}-php"; then
-      ln -sf "${CACHE_DIR}/usr/local/include/${PREFIX}-php" "/usr/local/include/${PREFIX}-php"
+    if test -d "${CACHE_DIR}/include/${PREFIX}-php"; then
+      ln -sf "${CACHE_DIR}/include/${PREFIX}-php" "/usr/local/include/${PREFIX}-php"
     fi
 
     echo "[Pskel > Cache] Restored PHP header and binary: ${PREFIX}-php" >&2
@@ -189,42 +180,43 @@ check_and_restore_cached_php() {
 
 generate_cache_key() {
   BUILD_TYPE="${1}"
-  COMPILER="${2}"
-
+  COMPILER="$(basename "${2}")"
   PHP_VERSION="$(php -r 'echo PHP_VERSION;')"
-  PHP_ZTS="$(php -r 'echo PHP_ZTS === 1 ? "zts" : "nts";')"
 
   if test -n "${CONTAINER_IMAGE_HASH}"; then
     IMAGE_HASH="${CONTAINER_IMAGE_HASH}"
   else
     IMAGE_HASH=""
     if test -d "/usr/src/php"; then
+      docker-php-source delete
+      docker-php-source extract
       IMAGE_HASH="$(cd /usr/src/php && find . -type f \( -name "*.c" -o -name "*.h" \) -exec sha256sum {} \; | sha256sum | cut -d' ' -f1 | cut -c1-16)"
     fi
   fi
 
-  echo "php-${PHP_VERSION}-${PHP_ZTS}-${BUILD_TYPE}-${COMPILER}-${IMAGE_HASH}"
+  echo "php-${PHP_VERSION}-${BUILD_TYPE}-${COMPILER}-${IMAGE_HASH}"
 }
 
 cache_php_build() {
   PREFIX="${1}"
   BUILD_TYPE="${2}"
-  COMPILER="${3}"
+  COMPILER="$(basename "${3}")"
+  ORIG_NAME="${4}"
 
-  CACHE_KEY="$(generate_cache_key "${BUILD_TYPE}" "${COMPILER}")"
+  CACHE_KEY="$(generate_cache_key "${ORIG_NAME}" "${COMPILER}")"
   CACHE_DIR="${PHP_CACHE_DIR}/${CACHE_KEY}"
 
-  mkdir -p "${CACHE_DIR}/usr/local/bin"
+  mkdir -p "${CACHE_DIR}/bin"
+  mkdir -p "${CACHE_DIR}/include"
 
   for BIN in php phpize php-config; do
     if test -f "/usr/local/bin/${PREFIX}-${BIN}"; then
-      cp -a "/usr/local/bin/${PREFIX}-${BIN}" "${CACHE_DIR}/usr/local/bin/"
+      cp -a "/usr/local/bin/${PREFIX}-${BIN}" "${CACHE_DIR}/bin/${PREFIX}-${BIN}"
     fi
-    done
+  done
 
   if test -d "/usr/local/include/${PREFIX}-php"; then
-    mkdir -p "${CACHE_DIR}/usr/local/include"
-    cp -a "/usr/local/include/${PREFIX}-php" "${CACHE_DIR}/usr/local/include/"
+    cp -a "/usr/local/include/${PREFIX}-php" "${CACHE_DIR}/include/${PREFIX}-php"
   fi
 
   touch "${CACHE_DIR}/.build_complete"
@@ -256,8 +248,14 @@ EOF
     make clean
   cd -
 
+  if test -n "${2}"; then
+    ORIG_NAME="${2}";
+  else
+    ORIG_NAME="${1}";
+  fi
+
   if test -d "${PHP_CACHE_DIR}"; then
-    cache_php_build "${1}" "${1}" "${CC}"
+    cache_php_build "${1}" "${1}" "${CC}" "${ORIG_NAME}"
   fi
 }
 
