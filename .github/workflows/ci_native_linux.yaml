@@ -42,13 +42,19 @@ jobs:
             mkdir -p "php-cache"
           fi
           docker compose build --no-cache --build-arg IMAGE="php" --build-arg TAG="${{ matrix.version }}-${{ matrix.type }}-${{ matrix.distro }}"
+      - name: Test extension with Bundled PHP + PHP library test (PHP <= 8.1)
+        if: matrix.version <= '8.1'
+        run: |
+          docker compose run --rm shell pskel test
+          docker compose run --rm shell library_test
       - name: Build pdo_mysql enabled PHP binary
         if: matrix.version != '8.1'
         run: |
-          docker compose run --rm -v "$(pwd)/php-cache:/opt/php-cache" -e PHP_CACHE_DIR="/opt/php-cache" -e CONTAINER_IMAGE_HASH="${{ steps.pull-image.outputs.image_hash }}" -e CONFIGURE_OPTS="--with-pdo-mysql" shell pskel build
-      - name: Test extension with Bundled PHP + PHP library test
+          docker compose run --rm -v "$(pwd)/php-cache:/opt/php-cache" -e PHP_CACHE_DIR="/opt/php-cache" -e CONTAINER_IMAGE_HASH="${{ steps.pull-image.outputs.image_hash }}" -e CONFIGURE_OPTS="--with-pdo-mysql" shell pskel build normal
+      - name: Test extension with Bundled PHP + PHP library test (PHP > 8.1)
+        if: matrix.version > '8.1'
         run: |
-          docker compose run --rm -v "$(pwd)/php-cache:/opt/php-cache" -e PHP_CACHE_DIR="/opt/php-cache" -e CONTAINER_IMAGE_HASH="${{ steps.pull-image.outputs.image_hash }}" -e CONFIGURE_OPTS="--with-pdo-mysql" shell pskel test
+          docker compose run --rm -v "$(pwd)/php-cache:/opt/php-cache" -e PHP_CACHE_DIR="/opt/php-cache" -e CONTAINER_IMAGE_HASH="${{ steps.pull-image.outputs.image_hash }}" -e CONFIGURE_OPTS="--with-pdo-mysql" shell pskel test normal
           docker compose run --rm -v "$(pwd)/php-cache:/opt/php-cache" -e PHP_CACHE_DIR="/opt/php-cache" -e CONTAINER_IMAGE_HASH="${{ steps.pull-image.outputs.image_hash }}" -e CONFIGURE_OPTS="--with-pdo-mysql" shell library_test
       - name: Test extension with PHP Debug Build
         if: matrix.version != '8.1'

@@ -111,6 +111,9 @@ EOF
       ;;
     *)
       CMD="${1}"
+      if ! command -v "${CMD}" >/dev/null 2>&1; then
+        CMD="${1}-php"
+      fi
       ;;
   esac
 
