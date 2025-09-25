@@ -1,5 +1,8 @@
 #!/bin/sh -eu
 
+echo "Wait for MySQL / TiDB to be ready..."
+sleep 15
+
 if test "$(php -m | grep -c "pdo_mysql")" -eq 0; then
   docker-php-ext-install "pdo" "pdo_mysql"
 fi
