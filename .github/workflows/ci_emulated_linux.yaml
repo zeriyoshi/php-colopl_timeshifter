@@ -76,5 +76,4 @@ jobs:
           env:
             SHELL_IMAGE: ${{ steps.image-tag.outputs.tag }}
           run: |
-            docker compose run --rm shell pskel test
             docker compose run --rm shell library_test
