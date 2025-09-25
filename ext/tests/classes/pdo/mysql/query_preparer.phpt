@@ -1,5 +1,7 @@
 --TEST--
 Check PDO MySQL (preparer)
+--INI--
+extension=pdo_mysql
 --EXTENSIONS--
 colopl_timeshifter
 pdo
