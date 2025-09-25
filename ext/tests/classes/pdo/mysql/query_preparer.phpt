@@ -10,7 +10,6 @@ mysqlnd
 if (\PHP_OS_FAMILY !== 'Linux') die('skip test only on Linux');
 ?>
 --INI--
-extension=pdo_mysql
 colopl_timeshifter.is_hook_pdo_mysql=1
 --FILE--
 <?php declare(strict_types=1);
@@ -31,11 +30,11 @@ foreach ($pdo->query('
     UTC_TIMESTAMP() AS "utc_timestamp";
 ', \PDO::FETCH_ASSOC)->fetch() as $result) {
     $after = new \DateTimeImmutable($result);
-    
+
     if ($after->getTimestamp() >= $before->getTimestamp()) {
         die('failure');
     }
-    
+
     $interval = $after->diff($before);
     if ($after < $before && 4 > $interval->days && $interval->days >= 2 && $interval->invert === 0) {
     } else {

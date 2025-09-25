@@ -132,7 +132,7 @@ EOF
     CC="${CC}" CXX="${CXX}" CFLAGS="${CFLAGS}" CPPFLAGS="${CPPFLAGS}" LDFLAGS="${LDFLAGS}" ./configure --with-php-config="$(command -v "${CMD}-config")"
     make clean
     make -j"$(nproc)"
-    TEST_PHP_ARGS="${TEST_PHP_ARGS} --show-diff -q" make test
+    "${CMD}" "run-tests.php" ${TEST_PHP_ARGS} --show-diff -q
   cd -
 }
 

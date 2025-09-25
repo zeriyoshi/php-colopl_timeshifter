@@ -19,7 +19,7 @@ $ cd "colopl_timeshifter/ext"
 $ phpize
 $ ./configure --with-php-config="$(which php-config)"
 $ make -j$(nproc)
-$ TEST_PHP_ARGS="-q --show-diff" make test
+$ php "run-tests.php" -q --show-diff -dextension=modules
 $ sudo make install
 ```
 

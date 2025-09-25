@@ -1,6 +1,6 @@
 #!/bin/sh -eu
 
-if test "$(php -r "echo PHP_VERSION_ID < 80200 ? 'true' : 'false';")" = "true" || test "$(uname -m)" = "s390x"; then
+if test "$(php -m | grep -c "pdo_mysql")" -eq 0; then
   docker-php-ext-install "pdo" "pdo_mysql"
 fi
 
@@ -9,9 +9,9 @@ cd "/project"
     phpize
     ./configure
     make -j"$(nproc)"
-    TEST_PHP_ARGS="--show-diff -q" make test
     make install
     docker-php-ext-enable "colopl_timeshifter"
+    php "run-tests.php" --show-diff -q
   cd -
   composer install
   composer exec -- phpunit "tests"
