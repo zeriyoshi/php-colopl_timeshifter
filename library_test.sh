@@ -9,9 +9,9 @@ cd "/project"
     phpize
     ./configure
     make -j"$(nproc)"
+    TEST_PHP_ARGS="--show-diff -q -d extension=$(php-config --extension-dir)/pdo_mysql.so" make test
     make install
     docker-php-ext-enable "colopl_timeshifter"
-    php "run-tests.php" --show-diff -q
   cd -
   composer install
   composer exec -- phpunit "tests"
