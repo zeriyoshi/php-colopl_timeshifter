@@ -1,7 +1,5 @@
 --TEST--
 Check PDO MySQL (preparer)
---INI--
-extension=pdo_mysql
 --EXTENSIONS--
 colopl_timeshifter
 pdo
@@ -12,6 +10,7 @@ mysqlnd
 if (\PHP_OS_FAMILY !== 'Linux') die('skip test only on Linux');
 ?>
 --INI--
+extension=pdo_mysql
 colopl_timeshifter.is_hook_pdo_mysql=1
 --FILE--
 <?php declare(strict_types=1);
