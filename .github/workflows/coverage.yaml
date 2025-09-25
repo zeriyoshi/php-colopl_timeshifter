@@ -1,4 +1,4 @@
-name: Coverage
+name: Coverage Report
 permissions:
   contents: write
   pull-requests: write
@@ -28,9 +28,9 @@ jobs:
         id: check
         run: |
           if test -f "ext/.gitkeep" && test "$(cat "ext/.gitkeep")" = "pskel_uninitialized"; then
-            echo "needs-init=true" >> $GITHUB_OUTPUT
+            echo "needs-init=true" >> "${GITHUB_OUTPUT}"
           else
-            echo "needs-init=false" >> $GITHUB_OUTPUT
+            echo "needs-init=false" >> "${GITHUB_OUTPUT}"
           fi
       - name: Initialize extension
         if: steps.check.outputs.needs-init == 'true'
@@ -40,10 +40,11 @@ jobs:
         if: steps.check.outputs.needs-init == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: initialized-ext-coverage
+          name: initialized-ext
           path: ext/
           retention-days: 1
-  coverage:
+
+  collect-coverage:
     needs: init
     runs-on: ${{ matrix.platform }}
     strategy:
@@ -61,82 +62,113 @@ jobs:
         if: needs.init.outputs.needs-init == 'true'
         uses: actions/download-artifact@v5
         with:
-          name: initialized-ext-coverage
+          name: initialized-ext
           path: ext/
-      - name: Install lcov
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y "lcov"
-      - name: Build container and run coverage
+      - name: Build container and run gcov tests
         run: |
           docker compose build \
             --build-arg TAG="${{ matrix.versions }}-${{ matrix.ts }}" \
             shell
-          touch "lcov.info"
-          docker compose run -v "$(pwd)/lcov.info:/ext/lcov.info" --rm shell pskel coverage
-          mv "lcov.info" "${{ matrix.platform }}_${{ matrix.versions }}_${{ matrix.ts }}_lcov.info"
-      - name: Upload coverage artifact
+          docker compose run -v "$(pwd)/ext:/ext" --rm shell pskel test gcov
+      - name: Upload complete ext directory with coverage data
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-${{ matrix.platform }}-${{ matrix.versions }}-${{ matrix.ts }}
-          path: "${{ matrix.platform }}_${{ matrix.versions }}_${{ matrix.ts }}_lcov.info"
+          name: ext-with-coverage-${{ matrix.platform }}-${{ matrix.versions }}-${{ matrix.ts }}
+          path: ext/
           retention-days: 1
-  deploy-pages:
-    needs: [coverage, init]
+
+  combine-and-deploy:
+    needs: [collect-coverage, init]
     runs-on: ubuntu-24.04
-    if: github.ref == 'refs/heads/main'
+    if: always() && needs.collect-coverage.result == 'success'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          submodules: true
+          fetch-depth: 1
       - name: Install lcov
         run: |
           sudo apt-get update
           sudo apt-get install -y "lcov"
-      - name: Download all coverage artifacts
+      - name: Download all ext directories with coverage data
         uses: actions/download-artifact@v5
         with:
-          pattern: coverage-*
-          merge-multiple: true
-          path: coverage-files/
-      - name: Merge coverage files
+          pattern: ext-with-coverage-*
+          merge-multiple: false
+          path: coverage-artifacts/
+      - name: Combine coverage data and generate reports
         run: |
-          COVERAGE_FILES=$(find "coverage-files/" -name "*_lcov.info" -type f)
-          if test -z "${COVERAGE_FILES}"; then
-            echo "No coverage files found"
-            exit 1
-          fi
+          mkdir -p "combined-ext"
+          mkdir -p "coverage-reports"
 
-          TRACEFILE_ARGS=""
-          for FILE in ${COVERAGE_FILES}; do
-            TRACEFILE_ARGS="${TRACEFILE_ARGS} --add-tracefile ${FILE}"
+          LCOV_FILES=""
+          for ARTIFACT_DIR in coverage-artifacts/ext-with-coverage-*; do
+            if test -d "${ARTIFACT_DIR}"; then
+              ARTIFACT_NAME=$(basename "${ARTIFACT_DIR}")
+              cp -r "${ARTIFACT_DIR}" "coverage-reports/${ARTIFACT_NAME}"
+
+              if test -f "${ARTIFACT_DIR}/lcov.info"; then
+                cp "${ARTIFACT_DIR}/lcov.info" "coverage-reports/${ARTIFACT_NAME}.info"
+              else
+                lcov --capture --directory "${ARTIFACT_DIR}" \
+                  --exclude "/usr/local/include/*" --exclude "/usr/src/php/*" \
+                  --output-file "coverage-reports/${ARTIFACT_NAME}.info" || true
+              fi
+
+              if test -f "coverage-reports/${ARTIFACT_NAME}.info"; then
+                LCOV_FILES="$LCOV_FILES --add-tracefile coverage-reports/${ARTIFACT_NAME}.info"
+                echo "Added ${ARTIFACT_NAME}.info to merge list"
+              else
+                echo "Warning: No coverage data found for ${ARTIFACT_NAME}"
+              fi
+            fi
           done
 
-          lcov ${TRACEFILE_ARGS} --ignore-errors format --output-file "lcov.info"
-      - name: Download initialized extension
-        if: needs.init.outputs.needs-init == 'true'
-        uses: actions/download-artifact@v5
-        with:
-          name: initialized-ext-coverage
-          path: ext/
+          if test -n "${LCOV_FILES}"; then
+            echo "Combining coverage files..."
+            lcov ${LCOV_FILES} --output-file "combined-ext/combined.info"
+
+            lcov --remove "combined-ext/combined.info" \
+              "/usr/*" "*/tests/*" "*/test/*" \
+              --output-file "combined-ext/cleaned.info"
+
+            echo "Combined coverage summary:"
+            lcov --summary "combined-ext/cleaned.info"
+          else
+            echo "Error: No coverage files to combine"
+            exit 1
+          fi
       - name: Generate HTML coverage report
         run: |
           mkdir -p "coverage-html"
-          sudo mv "ext" "/"
-          sudo chmod -R +r "/ext"
-          genhtml --output-directory "coverage-html" --title "Coverage Report" "lcov.info"
-      - name: Run octocov
-        uses: k1LoW/octocov-action@73d561f65d59e66899ed5c87e4621a913b5d5c20
-        with:
-          config: .github/octocov.yml
+
+          REFERENCE_EXT=$(find coverage-artifacts -name "ext-with-coverage-*" -type d | head -1)
+          if test -n "${REFERENCE_EXT}"; then
+            sudo mkdir -p /ext
+            sudo cp -r "${REFERENCE_EXT}"/* /ext/
+            sudo chmod -R +r /ext
+          fi
+
+          genhtml \
+            --output-directory "coverage-html" \
+            --title "Coverage Report" \
+            --show-details \
+            --highlight \
+            --legend \
+            "combined-ext/cleaned.info"
       - name: Setup Pages
+        if: github.ref == 'refs/heads/main'
         uses: actions/configure-pages@v5
       - name: Upload Pages artifact
+        if: github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v4
         with:
           path: coverage-html/
       - name: Deploy to GitHub Pages
+        if: github.ref == 'refs/heads/main'
         id: deployment
         uses: actions/deploy-pages@v4
